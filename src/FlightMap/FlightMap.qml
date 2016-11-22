@@ -119,6 +119,7 @@ Map {
         onMapTypeChanged:   updateActiveMapType()
     }
 
+    /// Ground Station location
     MapQuickItem {
         anchorPoint.x:  sourceItem.width  / 2
         anchorPoint.y:  sourceItem.height / 2
@@ -196,7 +197,8 @@ Map {
 
         property alias  drawingPolygon:     polygonDrawer.hoverEnabled
         property bool   adjustingPolygon:   false
-        property bool   polygonReady:       polygonDrawerPolygon.path.length > 3 ///< true: enough points have been captured to create a closed polygon
+        property bool   polygonReady:       polygonDrawerPolygonSet.path.length > 2 ///< true: enough points have been captured to create a closed polygon
+        property bool   justClicked: false
 
         property var _callbackObject
 
@@ -219,8 +221,7 @@ Map {
                 return false
             }
 
-            var polygonPath = polygonDrawerPolygon.path
-            polygonPath.pop() // get rid of drag coordinate
+            var polygonPath = polygonDrawerPolygonSet.path
             _cancelCapturePolygon()
             polygonDrawer._callbackObject.polygonCaptureFinished(polygonPath)
             return true
@@ -321,10 +322,13 @@ Map {
             polygonDrawerNextPoint.path = [ bogusCoord, bogusCoord ]
             polygonDrawerPolygon.path = [ ]
             polygonDrawerNextPoint.path = [ ]
+            polygonDrawerPolygonSet.path = [ bogusCoord, bogusCoord ]
+            polygonDrawerPolygonSet.path = [ ]
         }
 
         onClicked: {
             if (mouse.button == Qt.LeftButton) {
+                polygonDrawer.justClicked = true
                 if (polygonDrawerPolygon.path.length > 2) {
                     // Make sure the new line doesn't intersect the existing polygon
                     var lastSegment = polygonDrawerPolygon.path.length - 2
@@ -345,11 +349,19 @@ Map {
                     // Add first coordinate
                     polygonPath.push(clickCoordinate)
                 } else {
-                    // Update finalized coordinate
-                    polygonPath[polygonDrawerPolygon.path.length - 1] = clickCoordinate
+                    // Add subsequent coordinate
+                    if (ScreenTools.isMobile) {
+                        // Since mobile has no mouse, the onPositionChangedHandler will not fire. We have to add the coordinate
+                        // here instead.
+                        polygonDrawer.justClicked = false
+                        polygonPath.push(clickCoordinate)
+                    } else {
+                        // The onPositionChanged handler for mouse movement will have already added the coordinate to the array.
+                        // Just update it to the final position
+                        polygonPath[polygonDrawerPolygon.path.length - 1] = clickCoordinate
+                    }
                 }
-                // Add next drag coordinate
-                polygonPath.push(clickCoordinate)
+                polygonDrawerPolygonSet.path = polygonPath
                 polygonDrawerPolygon.path = polygonPath
             } else if (polygonDrawer.polygonReady) {
                 finishCapturePolygon()
@@ -357,16 +369,25 @@ Map {
         }
 
         onPositionChanged: {
+            if (ScreenTools.isMobile) {
+                // We don't track mouse drag on mobile
+                return
+            }
             if (polygonDrawerPolygon.path.length) {
                 var dragCoordinate = _map.toCoordinate(Qt.point(mouse.x, mouse.y))
+                var polygonPath = polygonDrawerPolygon.path
+                if (polygonDrawer.justClicked){
+                    // Add new drag coordinate
+                    polygonPath.push(dragCoordinate)
+                    polygonDrawer.justClicked = false
+                }
 
                 // Update drag line
                 polygonDrawerNextPoint.path = [ polygonDrawerPolygon.path[polygonDrawerPolygon.path.length - 2], dragCoordinate ]
 
-                // Update drag coordinate
-                var polygonPath = polygonDrawerPolygon.path
                 polygonPath[polygonDrawerPolygon.path.length - 1] = dragCoordinate
                 polygonDrawerPolygon.path = polygonPath
+
             }
         }
     }
@@ -376,14 +397,20 @@ Map {
         id:         polygonDrawerPolygon
         color:      "blue"
         opacity:    0.5
-        visible:    polygonDrawer.drawingPolygon
+        visible:    polygonDrawerPolygon.path.length > 2
+    }
+    MapPolygon {
+        id:         polygonDrawerPolygonSet
+        color:      'green'
+        opacity:    0.5
+        visible:    polygonDrawer.polygonReady
     }
 
     /// Next line for polygon
     MapPolyline {
         id:         polygonDrawerNextPoint
         line.color: "green"
-        line.width: 5
+        line.width: 3
         visible:    polygonDrawer.drawingPolygon
     }
 

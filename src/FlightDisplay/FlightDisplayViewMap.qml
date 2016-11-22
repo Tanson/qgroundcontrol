@@ -63,6 +63,11 @@ FlightMap {
         Component.onCompleted: start(false /* editMode */)
     }
 
+    RallyPointController {
+        id: rallyPointController
+        Component.onCompleted: start(false /* editMode */)
+    }
+
     // Add trajectory points to the map
     MapItemView {
         model: _mainIsMap ? _activeVehicle ? _activeVehicle.trajectoryPoints : 0 : 0
@@ -87,7 +92,7 @@ FlightMap {
             coordinate:     object.coordinate
             isSatellite:    flightMap.isSatelliteMap
             size:           _mainIsMap ? ScreenTools.defaultFontPixelHeight * 5 : ScreenTools.defaultFontPixelHeight * 2
-            z:              QGroundControl.zOrderMapItems
+            z:              QGroundControl.zOrderMapItems - 1
         }
     }
 
@@ -105,7 +110,8 @@ FlightMap {
     MapPolygon {
         border.color:   "#80FF0000"
         border.width:   3
-        path:           geoFenceController.polygonSupported ? geoFenceController.polygon.path : undefined
+        path:           geoFenceController.polygon.path
+        visible:        geoFenceController.fenceEnabled && geoFenceController.polygonSupported
     }
 
     // GeoFence circle
@@ -113,15 +119,35 @@ FlightMap {
         border.color:   "#80FF0000"
         border.width:   3
         center:         missionController.plannedHomePosition
-        radius:         geoFenceController.circleSupported ? geoFenceController.circleRadius : 0
+        radius:         (geoFenceController.fenceEnabled && geoFenceController.circleSupported) ? geoFenceController.circleRadius : 0
+        z:              QGroundControl.zOrderMapItems
+        visible:         geoFenceController.fenceEnabled && geoFenceController.circleSupported
     }
 
     // GeoFence breach return point
     MapQuickItem {
         anchorPoint:    Qt.point(sourceItem.width / 2, sourceItem.height / 2)
         coordinate:     geoFenceController.breachReturnPoint
-        visible:        geoFenceController.breachReturnSupported
+        visible:        geoFenceController.fenceEnabled && geoFenceController.breachReturnSupported
         sourceItem:     MissionItemIndexLabel { label: "F" }
+        z:              QGroundControl.zOrderMapItems
+    }
+
+    // Rally points on map
+    MapItemView {
+        model: rallyPointController.points
+
+        delegate: MapQuickItem {
+            id:             itemIndicator
+            anchorPoint:    Qt.point(sourceItem.width / 2, sourceItem.height / 2)
+            coordinate:     object.coordinate
+            z:              QGroundControl.zOrderMapItems
+
+            sourceItem: MissionItemIndexLabel {
+                id:         itemIndexLabel
+                label:      qsTr("R", "rally point map item label")
+            }
+        }
     }
 
     // GoTo here waypoint
@@ -133,8 +159,8 @@ FlightMap {
         anchorPoint.y:  sourceItem.height / 2
 
         sourceItem: MissionItemIndexLabel {
-            isCurrentItem:  true
-            label:          qsTr("G", "Goto here waypoint") // second string is translator's hint.
+            checked: true
+            label:   qsTr("G", "Goto here waypoint") // second string is translator's hint.
         }
     }    
 

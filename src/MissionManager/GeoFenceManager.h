@@ -14,7 +14,6 @@
 #include <QGeoCoordinate>
 
 #include "QGCLoggingCategory.h"
-#include "QGCMapPolygon.h"
 
 class Vehicle;
 
@@ -33,14 +32,15 @@ public:
     /// Returns true if the manager is currently communicating with the vehicle
     virtual bool inProgress(void) const { return false; }
 
-    /// Load the current settings from teh vehicle
+    /// Load the current settings from the vehicle
     virtual void loadFromVehicle(void);
 
     /// Send the current settings to the vehicle
-    virtual void sendToVehicle(void);
+    virtual void sendToVehicle(const QGeoCoordinate& breachReturn, const QList<QGeoCoordinate>& polygon);
 
     // Support flags
     virtual bool fenceSupported         (void) const { return false; }
+    virtual bool fenceEnabled           (void) const { return false; }
     virtual bool circleSupported        (void) const { return false; }
     virtual bool polygonSupported       (void) const { return false; }
     virtual bool breachReturnSupported  (void) const { return false; }
@@ -54,9 +54,6 @@ public:
 
     virtual QString editorQml(void) const { return QStringLiteral("qrc:/FirmwarePlugin/GeoFenceEditor.qml"); }
 
-    void setPolygon(QGCMapPolygon* polygon);
-    void setBreachReturnPoint(const QGeoCoordinate& breachReturnPoint);
-
     /// Error codes returned in error signal
     typedef enum {
         InternalError,
@@ -66,13 +63,13 @@ public:
     } ErrorCode_t;
     
 signals:
+    void loadComplete                   (const QGeoCoordinate& breachReturn, const QList<QGeoCoordinate>& polygon);
     void fenceSupportedChanged          (bool fenceSupported);
+    void fenceEnabledChanged            (bool fenceEnabled);
     void circleSupportedChanged         (bool circleSupported);
     void polygonSupportedChanged        (bool polygonSupported);
     void breachReturnSupportedChanged   (bool fenceSupported);
     void circleRadiusChanged            (float circleRadius);
-    void polygonChanged                 (QList<QGeoCoordinate> polygon);
-    void breachReturnPointChanged       (QGeoCoordinate breachReturnPoint);
     void inProgressChanged              (bool inProgress);
     void error                          (int errorCode, const QString& errorMsg);
     void paramsChanged                  (QVariantList params);

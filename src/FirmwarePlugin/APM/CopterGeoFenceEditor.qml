@@ -36,17 +36,14 @@ Column {
         color:          qgcPal.text
     }
 
-    QGCLabel {
-        text:       qsTr("Must be connected to Vehicle to change fence settings.")
-        visible:    !QGroundControl.multiVehicleManager.activeVehicle
-    }
-
     Repeater {
         model: geoFenceController.params
 
         Item {
             width:  editorColumn.width
             height: textField.height
+
+            property bool showCombo: modelData.enumStrings.length > 0
 
             QGCLabel {
                 id:                 textFieldLabel
@@ -60,7 +57,7 @@ Column {
                 width:          _editFieldWidth
                 showUnits:      true
                 fact:           modelData
-                visible:        !comboField.visible
+                visible:        !parent.showCombo
             }
 
             FactComboBox {
@@ -68,8 +65,8 @@ Column {
                 anchors.right:  parent.right
                 width:          _editFieldWidth
                 indexModel:     false
-                fact:           visible ? modelData : _nullFact
-                visible:        modelData.enumStrings.length
+                fact:           showCombo ? modelData : _nullFact
+                visible:        parent.showCombo
 
                 property var _nullFact: Fact { }
             }
@@ -80,8 +77,10 @@ Column {
         anchors.left:   parent.left
         anchors.right:  parent.right
         flightMap:      editorMap
-        polygon:        root.polygon
+        polygon:        geoFenceController.polygon
         sectionLabel:   qsTr("Fence Polygon:")
         visible:        geoFenceController.polygonSupported
+
+        onPolygonEditCompleted: geoFenceController.validateBreachReturn()
     }
 }

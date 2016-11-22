@@ -19,6 +19,8 @@
 
 Q_DECLARE_LOGGING_CATEGORY(GeoFenceControllerLog)
 
+class GeoFenceManager;
+
 class GeoFenceController : public PlanElementController
 {
     Q_OBJECT
@@ -28,6 +30,7 @@ public:
     ~GeoFenceController();
     
     Q_PROPERTY(bool                 fenceSupported          READ fenceSupported                                     NOTIFY fenceSupportedChanged)
+    Q_PROPERTY(bool                 fenceEnabled            READ fenceEnabled                                       NOTIFY fenceEnabledChanged)
     Q_PROPERTY(bool                 circleSupported         READ circleSupported                                    NOTIFY circleSupportedChanged)
     Q_PROPERTY(bool                 polygonSupported        READ polygonSupported                                   NOTIFY polygonSupportedChanged)
     Q_PROPERTY(bool                 breachReturnSupported   READ breachReturnSupported                              NOTIFY breachReturnSupportedChanged)
@@ -50,7 +53,10 @@ public:
     bool dirty              (void) const final;
     void setDirty           (bool dirty) final;
 
+    QString fileExtension(void) const final;
+
     bool                fenceSupported          (void) const;
+    bool                fenceEnabled            (void) const;
     bool                circleSupported         (void) const;
     bool                polygonSupported        (void) const;
     bool                breachReturnSupported   (void) const;
@@ -61,11 +67,11 @@ public:
     QStringList         paramLabels             (void) const;
     QString             editorQml               (void) const;
 
-public slots:
     void setBreachReturnPoint(const QGeoCoordinate& breachReturnPoint);
 
 signals:
     void fenceSupportedChanged          (bool fenceSupported);
+    void fenceEnabledChanged            (bool fenceEnabled);
     void circleSupportedChanged         (bool circleSupported);
     void polygonSupportedChanged        (bool polygonSupported);
     void breachReturnSupportedChanged   (bool breachReturnSupported);
@@ -75,23 +81,29 @@ signals:
     void paramsChanged                  (QVariantList params);
     void paramLabelsChanged             (QStringList paramLabels);
     void editorQmlChanged               (QString editorQml);
+    void loadComplete                   (void);
 
 private slots:
     void _polygonDirtyChanged(bool dirty);
     void _setDirty(void);
-    void _setPolygon(const QList<QGeoCoordinate>& polygon);
+    void _setPolygonFromManager(const QList<QGeoCoordinate>& polygon);
+    void _setReturnPointFromManager(QGeoCoordinate breachReturnPoint);
+    void _loadComplete(const QGeoCoordinate& breachReturn, const QList<QGeoCoordinate>& polygon);
 
 private:
-    void _clearGeoFence(void);
     void _signalAll(void);
+    bool _loadJsonFile(QJsonDocument& jsonDoc, QString& errorString);
 
-    void _activeVehicleBeingRemoved(Vehicle* vehicle) final;
+    void _activeVehicleBeingRemoved(void) final;
     void _activeVehicleSet(void) final;
 
-    bool            _dirty;
-    QGCMapPolygon   _polygon;
-    QGeoCoordinate  _breachReturnPoint;
-    QVariantList    _params;
+    bool                _dirty;
+    QGCMapPolygon       _polygon;
+    QGeoCoordinate      _breachReturnPoint;
+    QVariantList        _params;
+
+    static const char* _jsonFileTypeValue;
+    static const char* _jsonBreachReturnKey;
 };
 
 #endif

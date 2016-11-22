@@ -40,13 +40,14 @@
 QGC_LOGGING_CATEGORY(LinkManagerLog, "LinkManagerLog")
 QGC_LOGGING_CATEGORY(LinkManagerVerboseLog, "LinkManagerVerboseLog")
 
-const char* LinkManager::_settingsGroup =           "LinkManager";
-const char* LinkManager::_autoconnectUDPKey =       "AutoconnectUDP";
-const char* LinkManager::_autoconnectPixhawkKey =   "AutoconnectPixhawk";
-const char* LinkManager::_autoconnect3DRRadioKey =  "Autoconnect3DRRadio";
-const char* LinkManager::_autoconnectPX4FlowKey =   "AutoconnectPX4Flow";
-const char* LinkManager::_autoconnectRTKGPSKey =    "AutoconnectRTKGPS";
-const char* LinkManager::_defaultUPDLinkName =      "Default UDP Link";
+const char* LinkManager::_settingsGroup =            "LinkManager";
+const char* LinkManager::_autoconnectUDPKey =        "AutoconnectUDP";
+const char* LinkManager::_autoconnectPixhawkKey =    "AutoconnectPixhawk";
+const char* LinkManager::_autoconnect3DRRadioKey =   "Autoconnect3DRRadio";
+const char* LinkManager::_autoconnectPX4FlowKey =    "AutoconnectPX4Flow";
+const char* LinkManager::_autoconnectRTKGPSKey =     "AutoconnectRTKGPS";
+const char* LinkManager::_autoconnectLibrePilotKey = "AutoconnectLibrePilot";
+const char* LinkManager::_defaultUPDLinkName =       "Default UDP Link";
 
 const int LinkManager::_autoconnectUpdateTimerMSecs =   1000;
 #ifdef Q_OS_WIN
@@ -68,6 +69,7 @@ LinkManager::LinkManager(QGCApplication* app)
     , _autoconnect3DRRadio(true)
     , _autoconnectPX4Flow(true)
     , _autoconnectRTKGPS(true)
+    , _autoconnectLibrePilot(true)
 {
     qmlRegisterUncreatableType<LinkManager>         ("QGroundControl", 1, 0, "LinkManager",         "Reference only");
     qmlRegisterUncreatableType<LinkConfiguration>   ("QGroundControl", 1, 0, "LinkConfiguration",   "Reference only");
@@ -76,11 +78,12 @@ LinkManager::LinkManager(QGCApplication* app)
     QSettings settings;
 
     settings.beginGroup(_settingsGroup);
-    _autoconnectUDP =       settings.value(_autoconnectUDPKey, true).toBool();
-    _autoconnectPixhawk =   settings.value(_autoconnectPixhawkKey, true).toBool();
-    _autoconnect3DRRadio =  settings.value(_autoconnect3DRRadioKey, true).toBool();
-    _autoconnectPX4Flow =   settings.value(_autoconnectPX4FlowKey, true).toBool();
-    _autoconnectRTKGPS =    settings.value(_autoconnectRTKGPSKey, true).toBool();
+    _autoconnectUDP =        settings.value(_autoconnectUDPKey, true).toBool();
+    _autoconnectPixhawk =    settings.value(_autoconnectPixhawkKey, true).toBool();
+    _autoconnect3DRRadio =   settings.value(_autoconnect3DRRadioKey, true).toBool();
+    _autoconnectPX4Flow =    settings.value(_autoconnectPX4FlowKey, true).toBool();
+    _autoconnectRTKGPS =     settings.value(_autoconnectRTKGPSKey, true).toBool();
+    _autoconnectLibrePilot = settings.value(_autoconnectLibrePilotKey, true).toBool();
 
 #ifndef __ios__
     _activeLinkCheckTimer.setInterval(_activeLinkCheckTimeoutMSecs);
@@ -183,11 +186,15 @@ void LinkManager::_addLink(LinkInterface* link)
     if (!_links.contains(link)) {
         bool channelSet = false;
 
-        // Find a mavlink channel to use for this link
-        for (int i=0; i<32; i++) {
+        // Find a mavlink channel to use for this link, Channel 0 is reserved for internal use.
+        for (int i=1; i<32; i++) {
             if (!(_mavlinkChannelsUsedBitMask & 1 << i)) {
                 mavlink_reset_channel_status(i);
                 link->_setMavlinkChannel(i);
+                // Start the channel on Mav 1 protocol
+                mavlink_status_t* mavlinkStatus = mavlink_get_channel_status(i);
+                mavlinkStatus->flags = mavlink_get_channel_status(i)->flags | MAVLINK_STATUS_FLAG_OUT_MAVLINK1;
+                qDebug() << "LinkManager mavlinkStatus" << mavlinkStatus << i << mavlinkStatus->flags;
                 _mavlinkChannelsUsedBitMask |= 1 << i;
                 channelSet = true;
                 break;
@@ -267,7 +274,7 @@ void LinkManager::_deleteLink(LinkInterface* link)
     }
 
     // Free up the mavlink channel associated with this link
-    _mavlinkChannelsUsedBitMask &= ~(1 << link->getMavlinkChannel());
+    _mavlinkChannelsUsedBitMask &= ~(1 << link->mavlinkChannel());
 
     _links.removeOne(link);
     delete link;
@@ -564,6 +571,11 @@ void LinkManager::_updateAutoConnectLinks(void)
                         pSerialConfig = new SerialConfiguration(QString("SiK Radio on %1").arg(portInfo.portName().trimmed()));
                     }
                     break;
+                case QGCSerialPortInfo::BoardTypeLibrePilot:
+                    if (_autoconnectLibrePilot) {
+                        pSerialConfig = new SerialConfiguration(QString("LibrePilot on %1").arg(portInfo.portName().trimmed()));
+                    }
+                    break;
 #ifndef __mobile__
                 case QGCSerialPortInfo::BoardTypeRTKGPS:
                     if (_autoconnectRTKGPS && !_toolbox->gpsManager()->connected()) {
@@ -676,6 +688,13 @@ void LinkManager::setAutoconnectRTKGPS(bool autoconnect)
 {
     if (_setAutoconnectWorker(_autoconnectRTKGPS, autoconnect, _autoconnectRTKGPSKey)) {
         emit autoconnectRTKGPSChanged(autoconnect);
+    }
+}
+
+void LinkManager::setAutoconnectLibrePilot(bool autoconnect)
+{
+    if (_setAutoconnectWorker(_autoconnectLibrePilot, autoconnect, _autoconnectLibrePilotKey)) {
+        emit autoconnectLibrePilotChanged(autoconnect);
     }
 }
 

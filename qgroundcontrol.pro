@@ -53,6 +53,11 @@ contains (DEFINES, QGC_DISABLE_UVC) {
 } else:exists(user_config.pri):infile(user_config.pri, DEFINES, QGC_DISABLE_UVC) {
     message("Skipping support for UVC devices (manual override from user_config.pri)")
     DEFINES += QGC_DISABLE_UVC
+} else:LinuxBuild {
+    contains(QT_VERSION, 5.5.1) {
+        message("Skipping support for UVC devices (conflict with Qt 5.5.1 on Ubuntu)")
+        DEFINES += QGC_DISABLE_UVC
+    }
 }
 
 LinuxBuild {
@@ -207,6 +212,7 @@ INCLUDEPATH += .
 INCLUDEPATH += \
     include/ui \
     src \
+    src/AnalyzeView \
     src/audio \
     src/AutoPilotPlugins \
     src/comm \
@@ -288,7 +294,6 @@ HEADERS += \
     src/MissionManager/ComplexMissionItem.h \
     src/MissionManager/GeoFenceController.h \
     src/MissionManager/GeoFenceManager.h \
-    src/MissionManager/QGCMapPolygon.h \
     src/MissionManager/MissionCommandList.h \
     src/MissionManager/MissionCommandTree.h \
     src/MissionManager/MissionCommandUIInfo.h \
@@ -296,6 +301,10 @@ HEADERS += \
     src/MissionManager/MissionItem.h \
     src/MissionManager/MissionManager.h \
     src/MissionManager/PlanElementController.h \
+    src/MissionManager/QGCMapPolygon.h \
+    src/MissionManager/RallyPoint.h \
+    src/MissionManager/RallyPointController.h \
+    src/MissionManager/RallyPointManager.h \
     src/MissionManager/SimpleMissionItem.h \
     src/MissionManager/SurveyMissionItem.h \
     src/MissionManager/VisualMissionItem.h \
@@ -325,12 +334,14 @@ HEADERS += \
     src/uas/UAS.h \
     src/uas/UASInterface.h \
     src/uas/UASMessageHandler.h \
+    src/Vehicle/MAVLinkLogManager.h \
     src/ui/toolbar/MainToolBarController.h \
     src/AutoPilotPlugins/PX4/PX4AirframeLoader.h \
     src/AutoPilotPlugins/APM/APMAirframeLoader.h \
     src/QmlControls/QGCImageProvider.h \
     src/QtLocationPlugin/QMLControl/QGCMapEngineManager.h \
-    src/PositionManager/PositionManager.h
+    src/PositionManager/PositionManager.h \
+    src/AnalyzeView/ExifParser.h
 
 AndroidBuild {
 HEADERS += \
@@ -363,6 +374,8 @@ HEADERS += \
 
 !MobileBuild {
 HEADERS += \
+    src/AnalyzeView/GeoTagController.h \
+    src/AnalyzeView/LogDownloadController.h \
     src/comm/LogReplayLink.h \
     src/comm/QGCFlightGearLink.h \
     src/comm/QGCHilLink.h \
@@ -412,8 +425,6 @@ HEADERS += \
     src/GPS/GPSProvider.h \
     src/ViewWidgets/CustomCommandWidget.h \
     src/ViewWidgets/CustomCommandWidgetController.h \
-    src/ViewWidgets/LogDownload.h \
-    src/ViewWidgets/LogDownloadController.h \
     src/ViewWidgets/ViewWidgetController.h \
 }
 
@@ -452,7 +463,6 @@ SOURCES += \
     src/MissionManager/ComplexMissionItem.cc \
     src/MissionManager/GeoFenceController.cc \
     src/MissionManager/GeoFenceManager.cc \
-    src/MissionManager/QGCMapPolygon.cc \
     src/MissionManager/MissionCommandList.cc \
     src/MissionManager/MissionCommandTree.cc \
     src/MissionManager/MissionCommandUIInfo.cc \
@@ -460,6 +470,10 @@ SOURCES += \
     src/MissionManager/MissionItem.cc \
     src/MissionManager/MissionManager.cc \
     src/MissionManager/PlanElementController.cc \
+    src/MissionManager/QGCMapPolygon.cc \
+    src/MissionManager/RallyPoint.cc \
+    src/MissionManager/RallyPointController.cc \
+    src/MissionManager/RallyPointManager.cc \
     src/MissionManager/SimpleMissionItem.cc \
     src/MissionManager/SurveyMissionItem.cc \
     src/MissionManager/VisualMissionItem.cc \
@@ -486,13 +500,15 @@ SOURCES += \
     src/QmlControls/QmlObjectListModel.cc \
     src/uas/UAS.cc \
     src/uas/UASMessageHandler.cc \
+    src/Vehicle/MAVLinkLogManager.cc \
     src/ui/toolbar/MainToolBarController.cc \
     src/AutoPilotPlugins/PX4/PX4AirframeLoader.cc \
     src/AutoPilotPlugins/APM/APMAirframeLoader.cc \
     src/QmlControls/QGCImageProvider.cc \
     src/QtLocationPlugin/QMLControl/QGCMapEngineManager.cc \
     src/PositionManager/SimulatedPosition.cc \
-    src/PositionManager/PositionManager.cpp
+    src/PositionManager/PositionManager.cpp \
+    src/AnalyzeView/ExifParser.cc
 
 DebugBuild {
 SOURCES += \
@@ -514,6 +530,8 @@ contains(DEFINES, QGC_ENABLE_BLUETOOTH) {
 
 !MobileBuild {
 SOURCES += \
+    src/AnalyzeView/GeoTagController.cc \
+    src/AnalyzeView/LogDownloadController.cc \
     src/ui/uas/UASMessageView.cc \
     src/uas/FileManager.cc \
     src/ui/uas/QGCUnconnectedInfoWidget.cc \
@@ -557,8 +575,6 @@ SOURCES += \
     src/GPS/GPSProvider.cc \
     src/ViewWidgets/CustomCommandWidget.cc \
     src/ViewWidgets/CustomCommandWidgetController.cc \
-    src/ViewWidgets/LogDownload.cc \
-    src/ViewWidgets/LogDownloadController.cc \
     src/ViewWidgets/ViewWidgetController.cc
 }
 
@@ -577,9 +593,11 @@ INCLUDEPATH += \
     src/qgcunittest
 
 HEADERS += \
+    src/AnalyzeView/LogDownloadTest.h \
     src/FactSystem/FactSystemTestBase.h \
     src/FactSystem/FactSystemTestGeneric.h \
     src/FactSystem/FactSystemTestPX4.h \
+    src/FactSystem/ParameterManagerTest.h \
     src/MissionManager/ComplexMissionItemTest.h \
     src/MissionManager/MissionCommandTreeTest.h \
     src/MissionManager/MissionControllerTest.h \
@@ -596,18 +614,17 @@ HEADERS += \
     src/qgcunittest/MavlinkLogTest.h \
     src/qgcunittest/MessageBoxTest.h \
     src/qgcunittest/MultiSignalSpy.h \
-    src/qgcunittest/ParameterLoaderTest.h \
     src/qgcunittest/RadioConfigTest.h \
     src/qgcunittest/TCPLinkTest.h \
     src/qgcunittest/TCPLoopBackServer.h \
     src/qgcunittest/UnitTest.h \
-    src/ViewWidgets/LogDownloadTest.h \
-    src/VehicleSetup/SetupViewTest.h \
 
 SOURCES += \
+    src/AnalyzeView/LogDownloadTest.cc \
     src/FactSystem/FactSystemTestBase.cc \
     src/FactSystem/FactSystemTestGeneric.cc \
     src/FactSystem/FactSystemTestPX4.cc \
+    src/FactSystem/ParameterManagerTest.cc \
     src/MissionManager/ComplexMissionItemTest.cc \
     src/MissionManager/MissionCommandTreeTest.cc \
     src/MissionManager/MissionControllerTest.cc \
@@ -624,14 +641,11 @@ SOURCES += \
     src/qgcunittest/MavlinkLogTest.cc \
     src/qgcunittest/MessageBoxTest.cc \
     src/qgcunittest/MultiSignalSpy.cc \
-    src/qgcunittest/ParameterLoaderTest.cc \
     src/qgcunittest/RadioConfigTest.cc \
     src/qgcunittest/TCPLinkTest.cc \
     src/qgcunittest/TCPLoopBackServer.cc \
     src/qgcunittest/UnitTest.cc \
     src/qgcunittest/UnitTestList.cc \
-    src/ViewWidgets/LogDownloadTest.cc \
-    src/VehicleSetup/SetupViewTest.cc \
 } # !MobileBuild
 } # DebugBuild
 
@@ -657,6 +671,7 @@ HEADERS+= \
     src/AutoPilotPlugins/APM/APMAirframeComponentController.h \
     src/AutoPilotPlugins/APM/APMAirframeComponentAirframes.h \
     src/AutoPilotPlugins/APM/APMCameraComponent.h \
+    src/AutoPilotPlugins/APM/APMLightsComponent.h \
     src/AutoPilotPlugins/APM/APMCompassCal.h \
     src/AutoPilotPlugins/APM/APMFlightModesComponent.h \
     src/AutoPilotPlugins/APM/APMFlightModesComponentController.h \
@@ -691,6 +706,7 @@ HEADERS+= \
     src/FirmwarePlugin/APM/APMFirmwarePlugin.h \
     src/FirmwarePlugin/APM/APMGeoFenceManager.h \
     src/FirmwarePlugin/APM/APMParameterMetaData.h \
+    src/FirmwarePlugin/APM/APMRallyPointManager.h \
     src/FirmwarePlugin/APM/ArduCopterFirmwarePlugin.h \
     src/FirmwarePlugin/APM/ArduPlaneFirmwarePlugin.h \
     src/FirmwarePlugin/APM/ArduRoverFirmwarePlugin.h \
@@ -719,6 +735,7 @@ SOURCES += \
     src/AutoPilotPlugins/APM/APMAirframeComponent.cc \
     src/AutoPilotPlugins/APM/APMAirframeComponentController.cc \
     src/AutoPilotPlugins/APM/APMCameraComponent.cc \
+    src/AutoPilotPlugins/APM/APMLightsComponent.cc \
     src/AutoPilotPlugins/APM/APMCompassCal.cc \
     src/AutoPilotPlugins/APM/APMFlightModesComponent.cc \
     src/AutoPilotPlugins/APM/APMFlightModesComponentController.cc \
@@ -752,6 +769,7 @@ SOURCES += \
     src/FirmwarePlugin/APM/APMFirmwarePlugin.cc \
     src/FirmwarePlugin/APM/APMGeoFenceManager.cc \
     src/FirmwarePlugin/APM/APMParameterMetaData.cc \
+    src/FirmwarePlugin/APM/APMRallyPointManager.cc \
     src/FirmwarePlugin/APM/ArduCopterFirmwarePlugin.cc \
     src/FirmwarePlugin/APM/ArduPlaneFirmwarePlugin.cc \
     src/FirmwarePlugin/APM/ArduRoverFirmwarePlugin.cc \
@@ -787,7 +805,7 @@ HEADERS += \
     src/FactSystem/FactMetaData.h \
     src/FactSystem/FactSystem.h \
     src/FactSystem/FactValidator.h \
-    src/FactSystem/ParameterLoader.h \
+    src/FactSystem/ParameterManager.h \
     src/FactSystem/SettingsFact.h \
 
 SOURCES += \
@@ -797,7 +815,7 @@ SOURCES += \
     src/FactSystem/FactMetaData.cc \
     src/FactSystem/FactSystem.cc \
     src/FactSystem/FactValidator.cc \
-    src/FactSystem/ParameterLoader.cc \
+    src/FactSystem/ParameterManager.cc \
     src/FactSystem/SettingsFact.cc \
 
 #-------------------------------------------------------------------------------------
